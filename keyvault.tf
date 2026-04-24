@@ -26,3 +26,16 @@ resource "azurerm_key_vault_access_policy" "current_user" {
     "Purge"
   ]
 }
+resource "random_password" "postgresql" {
+  length           = 20
+  special          = true
+  override_special = "!#$%&*"
+}
+
+resource "azurerm_key_vault_secret" "postgresql_password" {
+  name         = "postgresql-admin-password"
+  value        = random_password.postgresql.result
+  key_vault_id = azurerm_key_vault.main.id
+
+  depends_on = [azurerm_key_vault_access_policy.current_user]
+}

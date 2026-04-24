@@ -25,8 +25,7 @@ resource "random_id" "suffix" {
 
 resource "azurerm_resource_group" "main" {
   name     = "rg-pfa-devsecops"
-  location = "germanywestcentral"
-
+  location = "swedencentral"
   tags = {
     Environment = "Production"
     Project     = "DevSecOps-PFA"
