@@ -1,12 +1,13 @@
-
-# NSG APP
+# ==============================================================================
+# NSG 1 — Subnet APP (VM Application + Docker Compose)
+# ==============================================================================
 resource "azurerm_network_security_group" "app" {
   name                = "nsg-app"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
 
   security_rule {
-    name                       = "Allow-HTTP"
+    name                       = "Allow-HTTP-Inbound"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
@@ -18,7 +19,7 @@ resource "azurerm_network_security_group" "app" {
   }
 
   security_rule {
-    name                       = "Allow-HTTPS"
+    name                       = "Allow-HTTPS-Inbound"
     priority                   = 110
     direction                  = "Inbound"
     access                     = "Allow"
@@ -28,29 +29,61 @@ resource "azurerm_network_security_group" "app" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
   security_rule {
-    name                       = "allow-ssh"
+    name                       = "Allow-SSH-Admin-Only"
     priority                   = 120
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "102.171.60.196/32"
+    source_address_prefix      = "102.173.176.228/32"
     destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-VNet-Internal"
+    priority                   = 130
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3000"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Deny-All-Inbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "Production"
+    Project     = "DevSecOps-PFA"
+    ManagedBy   = "Terraform"
   }
 }
 
-
-# NSG DEVOPS
-
+# ==============================================================================
+# NSG 2 — Subnet DEVOPS (Jenkins + SonarQube)
+# ==============================================================================
 resource "azurerm_network_security_group" "devops" {
   name                = "nsg-devops"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
+
   security_rule {
     name                       = "Allow-SSH-From-App-Subnet"
-    priority                   = 200
+    priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -59,77 +92,155 @@ resource "azurerm_network_security_group" "devops" {
     source_address_prefix      = "10.0.1.0/24"
     destination_address_prefix = "*"
   }
-  security_rule {
-    name                       = "Allow-Jenkins"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    destination_port_range     = "8080"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "*"
-    source_port_range          = "*"
-  }
 
   security_rule {
-    name                       = "Allow-SonarQube"
+    name                       = "Allow-Jenkins-VNet-Only"
     priority                   = 110
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8080"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-SonarQube-VNet-Only"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
     destination_port_range     = "9000"
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "*"
-    source_port_range          = "*"
   }
 
+  security_rule {
+    name                       = "Deny-All-Inbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "Production"
+    Project     = "DevSecOps-PFA"
+    ManagedBy   = "Terraform"
+  }
 }
 
-#############################################
-# NSG DATA
-#############################################
+# ==============================================================================
+# NSG 3 — Subnet DATA (PostgreSQL)
+# ==============================================================================
 resource "azurerm_network_security_group" "data" {
   name                = "nsg-data"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
 
   security_rule {
-    name                       = "Allow-Postgres"
+    name                       = "Allow-PostgreSQL-From-App-Only"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
+    source_port_range          = "*"
     destination_port_range     = "5432"
     source_address_prefix      = "10.0.1.0/24"
     destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Deny-All-Inbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
     source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "Production"
+    Project     = "DevSecOps-PFA"
+    ManagedBy   = "Terraform"
   }
 }
 
-#############################################
-# NSG MONITORING
-#############################################
+# ==============================================================================
+# NSG 4 — Subnet MONITORING (Prometheus + Grafana)
+# ==============================================================================
 resource "azurerm_network_security_group" "monitoring" {
   name                = "nsg-monitoring"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
 
   security_rule {
-    name                       = "Allow-Grafana"
+    name                       = "Allow-Grafana-VNet-Only"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
+    source_port_range          = "*"
     destination_port_range     = "3000"
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-Prometheus-VNet-Only"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
     source_port_range          = "*"
+    destination_port_range     = "9090"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Allow-SSH-From-App-Subnet"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "10.0.1.0/24"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "Deny-All-Inbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "Production"
+    Project     = "DevSecOps-PFA"
+    ManagedBy   = "Terraform"
   }
 }
 
-#############################################
-# ASSOCIATIONS NSG
-#############################################
+# ==============================================================================
+# ASSOCIATIONS NSG → Subnets
+# ==============================================================================
 resource "azurerm_subnet_network_security_group_association" "app" {
   subnet_id                 = azurerm_subnet.app.id
   network_security_group_id = azurerm_network_security_group.app.id
@@ -149,3 +260,11 @@ resource "azurerm_subnet_network_security_group_association" "monitoring" {
   subnet_id                 = azurerm_subnet.monitoring.id
   network_security_group_id = azurerm_network_security_group.monitoring.id
 }
+
+# ==============================================================================
+# OUTPUTS
+# ==============================================================================
+output "nsg_app_id"        { value = azurerm_network_security_group.app.id }
+output "nsg_devops_id"     { value = azurerm_network_security_group.devops.id }
+output "nsg_data_id"       { value = azurerm_network_security_group.data.id }
+output "nsg_monitoring_id" { value = azurerm_network_security_group.monitoring.id }
